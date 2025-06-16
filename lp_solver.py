@@ -1,8 +1,5 @@
 import numpy as np
-import logging
-import traceback
-import utils  # Absolute import
-import tkinter as tk  # Import tkinter
+import utils
 
 def run_simplex(
     c, A, b, obj_type, original_constraint_count, constraints, steps_text=None
@@ -15,7 +12,7 @@ def run_simplex(
         b: 1D array, right-hand side values.
         obj_type: 'max' or 'min'
         original_constraint_count: int, number of original constraints.
-        constraints: list of tuples, each representing a constraint (see GUI code).
+        constraints: list of tuples, each representing a constraint.
         steps_text: Tkinter Text widget or None; outputs steps if provided.
     Returns:
         solution: optimal variable values
@@ -24,126 +21,81 @@ def run_simplex(
         final_dual: dual variable values (shadow prices)
         problem_history: list of (description, tableau) tuples
     """
-    try:
-        m, n = A.shape
+    m, n = A.shape
 
-        # Record initial tableau
+    # Standard form: always minimize, so negate c if maximizing
+    c = np.array(c, dtype=float)
+    if obj_type == "max":
+        c = -c
+
+    # Build initial tableau
+    tableau = np.zeros((m + 1, n + m + 1))
+    tableau[:-1, :n] = A
+    tableau[:-1, n:n + m] = np.eye(m)
+    tableau[:-1, -1] = b
+    tableau[-1, :n] = c
+
+    problem_history = [("Initial Tableau", tableau.copy())]
+
+    if steps_text is not None:
+        steps_text.insert("end", "\n=== INITIAL TABLEAU ===\n")
+        steps_text.insert("end", utils.format_tableau(tableau, n, m))
+
+    max_iter = 100 * (n + m)
+    iter_count = 0
+    while iter_count < max_iter:
+        # Check for optimality
+        if np.all(tableau[-1, :-1] >= -1e-10):
+            if steps_text is not None:
+                steps_text.insert("end", "\n=== OPTIMALITY CONDITION SATISFIED ===\n")
+            break
+
+        # Pick entering variable (Bland's rule: smallest index with negative cost)
+        candidates = np.where(tableau[-1, :-1] < -1e-10)[0]
+        if len(candidates) == 0:
+            break
+        entering = candidates[0]
+
+        # Minimum ratio test
+        ratios = np.where(
+            tableau[:-1, entering] > 1e-10,
+            tableau[:-1, -1] / tableau[:-1, entering],
+            np.inf
+        )
+        if np.all(ratios == np.inf):
+            if steps_text is not None:
+                steps_text.insert("end", "\n=== UNBOUNDED PROBLEM ===\n")
+            return None, None, None, None, problem_history
+        leaving = np.argmin(ratios)
+
+        # Pivot
+        pivot = tableau[leaving, entering]
+        tableau[leaving, :] /= pivot
+        for i in range(m + 1):
+            if i != leaving:
+                tableau[i, :] -= tableau[i, entering] * tableau[leaving, :]
+
+        iter_count += 1
+        problem_history.append((f"Iteration {iter_count}", tableau.copy()))
         if steps_text is not None:
-            steps_text.insert(tk.END, "\n=== INITIAL TABLEAU ===\n")
+            steps_text.insert("end", f"\n=== ITERATION {iter_count} ===\n")
+            steps_text.insert("end", utils.format_tableau(tableau, n, m))
 
-        # Add slack variables
-        tableau = np.zeros((m + 1, n + m + 1))
-        tableau[:-1, :n] = A
-        tableau[:-1, n:n + m] = np.eye(m)
-        tableau[:-1, -1] = b
-        tableau[-1, :n] = c  # We're always minimizing in standard form
+    # Extract solution
+    solution = np.zeros(n)
+    for j in range(n):
+        col = tableau[:-1, j]
+        if np.count_nonzero(np.abs(col - 1) < 1e-8) == 1 and np.count_nonzero(np.abs(col) < 1e-8) == m - 1:
+            row = np.where(np.abs(col - 1) < 1e-8)[0][0]
+            solution[j] = tableau[row, -1]
+    slack_values = tableau[:-1, -1][n:]
+    optimal_value = tableau[-1, -1]
+    if obj_type == "max":
+        optimal_value = -optimal_value
 
-        # Display initial tableau
-        if steps_text is not None:
-            steps_text.insert(tk.END, utils.format_tableau(tableau, n, m))
-        problem_history = [("Initial Tableau", tableau.copy())]
+    # Duals: last row, coefficients of the slack variables
+    dual_solution = tableau[-1, n:n + m]
+    if original_constraint_count is not None and m > original_constraint_count:
+        dual_solution = dual_solution[:original_constraint_count]
 
-        # Bland's rule for anti-cycling
-        iteration = 1
-        while True:
-            # Check for optimality
-            if np.all(tableau[-1, :-1] >= -1e-6):
-                if steps_text is not None:
-                    steps_text.insert(tk.END, "\n=== OPTIMALITY CONDITION SATISFIED ===\n")
-                break
-
-            # Select entering variable (smallest index with negative reduced cost)
-            entering = np.argmin(tableau[-1, :-1])
-            entering_var = f"x{entering + 1}" if entering < n else f"s{entering - n + 1}"
-
-            if steps_text is not None:
-                steps_text.insert(tk.END, f"\n=== ITERATION {iteration} ===\n")
-                steps_text.insert(tk.END, f"Entering variable: {entering_var} (column {entering + 1})\n")
-
-            if tableau[-1, entering] >= -1e-10:
-                break  # Optimal solution found
-
-            # Select leaving variable using minimum ratio test
-            ratios = np.where(tableau[:-1, entering] > 1e-10,
-                              tableau[:-1, -1] / tableau[:-1, entering], np.inf)
-
-            if np.all(ratios == np.inf):
-                if steps_text is not None:
-                    steps_text.insert(tk.END, "\n=== UNBOUNDED PROBLEM ===\n")
-                return None, None, None, None, problem_history  # Indicate unbounded
-
-            leaving = np.argmin(ratios)
-            leaving_var = f"s{leaving + 1}"
-
-            if steps_text is not None:
-                steps_text.insert(tk.END, f"Leaving variable: {leaving_var} (row {leaving + 1})\n")
-
-            # Pivot
-            pivot = tableau[leaving, entering]
-            tableau[leaving] /= pivot
-
-            for i in range(m + 1):
-                if i != leaving:
-                    tableau[i] -= tableau[i, entering] * tableau[leaving]
-
-            # Update basis variables (for display)
-            basis_vars = []
-            for col in range(n):
-                col_vals = tableau[:-1, col]
-                if np.sum(np.isclose(col_vals, 1)) == 1 and np.sum(np.isclose(col_vals, 0)) == m - 1:
-                    basis_vars.append(f"x{col + 1}")
-            for col in range(m):
-                col_vals = tableau[:-1, n + col]
-                if np.sum(np.isclose(col_vals, 1)) == 1 and np.sum(np.isclose(col_vals, 0)) == m - 1:
-                    basis_vars.append(f"s{col + 1}")
-
-            if steps_text is not None:
-                steps_text.insert(tk.END, f"Basis variables: {', '.join(basis_vars)}\n")
-            problem_history.append((f"Iteration {iteration} - After pivot", tableau.copy()))
-
-            iteration += 1
-
-        # Extract solution
-        solution = np.zeros(n)
-        basis = []
-
-        for col in range(n):
-            col_vals = tableau[:-1, col]
-            if np.sum(np.isclose(col_vals, 1)) == 1 and np.sum(np.isclose(col_vals, 0)) == m - 1:
-                row = np.argmax(col_vals)
-                solution[col] = tableau[row, -1]
-                basis.append((row, col))
-
-        slack_values = b - np.dot(A, solution)
-
-        # Calculate optimal value
-        optimal_value = tableau[-1, -1]
-        if obj_type == "max":
-            optimal_value = -optimal_value
-
-        # Extract dual variables (shadow prices)
-        dual_solution = np.zeros(m)
-        for row in range(m):
-            if n + row < tableau.shape[1] - 1:
-                dual_solution[row] = tableau[-1, n + row]
-
-        # Adjust dual variables for converted constraints
-        final_dual = np.zeros(original_constraint_count)
-        current_idx = 0
-        for i, op in enumerate([x[3].get() if hasattr(x[3], "get") else x[3] for x in constraints]):
-            if op == "≤":
-                final_dual[i] = dual_solution[current_idx]
-                current_idx += 1
-            elif op == "≥":
-                final_dual[i] = -dual_solution[current_idx]
-                current_idx += 1
-            elif op == "=":
-                final_dual[i] = dual_solution[current_idx] - dual_solution[current_idx + 1]
-                current_idx += 2
-
-        return solution, slack_values, optimal_value, final_dual, problem_history
-
-    except Exception as e:
-        logging.error(f"Error in run_simplex: {e}")
-        logging.error(traceback.format_exc())
-        return None, None, None, None, []  # Indicate failure
+    return solution, slack_values, optimal_value, dual_solution, problem_history
