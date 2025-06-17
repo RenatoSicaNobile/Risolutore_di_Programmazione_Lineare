@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-import numpy as np
 import json
 from PIL import Image, ImageTk
 import matplotlib.pyplot as plt
@@ -8,10 +7,11 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 
 import lp_solver
 import graph
+import pdf_exporter
 
 def subscript_number(n):
-    subscript_digits = "₀₁₂₃₄₅₆₇₈₉"
-    return ''.join(subscript_digits[int(d)] for d in str(n))
+    sub = "₀₁₂₃₄₅₆₇₈₉"
+    return ''.join(sub[int(d)] for d in str(n))
 
 class LinearProgrammingGUI:
     def __init__(self, master):
@@ -122,13 +122,10 @@ class LinearProgrammingGUI:
         # RIGHT: Solution output
         right_frame = tk.Frame(main_frame)
         right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
-
         self.solution_frame = ttk.LabelFrame(right_frame, text="Processo risolutivo")
         self.solution_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=(0, 5))
         self.solution_text = tk.Text(self.solution_frame, height=30, wrap=tk.WORD)
         self.solution_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-        # Button row
         button_row = tk.Frame(self.solution_frame)
         button_row.pack(fill=tk.X, padx=5, pady=2)
         self.solve_button = ttk.Button(button_row, text="RISOLVI", command=self.solve)
@@ -144,13 +141,10 @@ class LinearProgrammingGUI:
         self.show_all_quadrants_check.pack(side=tk.LEFT, padx=5)
         self.graph_button = ttk.Button(button_row, text="GRAFICO", command=self.open_graph_window)
         self.graph_button.pack(side=tk.LEFT, padx=5)
-
-        # Store last solution for graphing
         self.last_solution = None
         self.last_A = None
         self.last_b = None
         self.last_c = None
-
         self.update_variables()
 
     def copy_solution(self):
@@ -397,8 +391,58 @@ class LinearProgrammingGUI:
             rhs_entry.insert(0, cons.get("rhs", "0.0"))
         self.show_objective_function()
 
+    def get_problem_statement(self):
+        obj_type = self.obj_type.get()
+        num_vars = self.num_vars.get()
+        obj_terms = []
+        for i in range(num_vars):
+            sign = self.obj_signs[i].get() if i < len(self.obj_signs) else "+"
+            coeff = self.obj_coeffs[i].get() if i < len(self.obj_coeffs) else "1"
+            var = f"x{subscript_number(i+1)}"
+            try:
+                coeff_val = float(coeff)
+            except Exception:
+                coeff_val = 0
+            if coeff_val == 0:
+                continue
+            if i == 0:
+                term = f"{'-' if sign == '-' else ''}{abs(coeff_val):g}{var}" if abs(coeff_val) != 1 else f"{'-' if sign == '-' else ''}{var}"
+            else:
+                term = f" {'-' if sign == '-' else '+'} {abs(coeff_val):g}{var}" if abs(coeff_val) != 1 else f" {'-' if sign == '-' else '+'}{var}"
+            obj_terms.append(term)
+        obj_str = "".join(obj_terms) if obj_terms else "0"
+        lines = []
+        lines.append("·	Objective:")
+        lines.append(f" {obj_type} z = {obj_str}")
+        lines.append("·	Constraints:")
+        for frame, signs, entries, ineq, rhs_entry in self.constraints:
+            constraint_terms = []
+            for i in range(num_vars):
+                sign = signs[i].get() if i < len(signs) else "+"
+                coeff = entries[i].get() if i < len(entries) else "1"
+                var = f"x{subscript_number(i+1)}"
+                try:
+                    coeff_val = float(coeff)
+                except Exception:
+                    coeff_val = 0
+                if coeff_val == 0:
+                    continue
+                if i == 0:
+                    term = f"{'-' if sign == '-' else ''}{abs(coeff_val):g}{var}" if abs(coeff_val) != 1 else f"{'-' if sign == '-' else ''}{var}"
+                else:
+                    term = f" {'-' if sign == '-' else '+'}{abs(coeff_val):g}{var}" if abs(coeff_val) != 1 else f" {'-' if sign == '-' else '+'}{var}"
+                constraint_terms.append(term)
+            lines.append(f" {' '.join(constraint_terms)} {ineq.get()} {rhs_entry.get()}")
+        for i in range(num_vars):
+            var = f"x{subscript_number(i+1)}"
+            lines.append(f" {var} ≥ 0")
+        return "\n".join(lines) + "\n\n"
+
     def solve(self):
         try:
+            self.solution_text.delete("1.0", tk.END)
+            prob_text = self.get_problem_statement()
+            self.solution_text.insert(tk.END, prob_text)
             num_vars = self.num_vars.get()
             obj_type = self.obj_type.get()
             obj_coeffs = [(self.obj_signs[i].get(), self.obj_coeffs[i].get()) for i in range(num_vars)]
@@ -413,24 +457,50 @@ class LinearProgrammingGUI:
                     "rhs": rhs_entry.get()
                 }
                 constraints.append(constraint)
-            c, A, b = lp_solver.preprocess_problem(obj_type, obj_coeffs, constraints, nn_signs, nn_values)
-            self.solution_text.delete("1.0", tk.END)
-            sol, optimal = lp_solver.simplex_solve(c, A, b)
+            steps, sol, optimal = lp_solver.simplex_full(obj_type, obj_coeffs, constraints, nn_signs, nn_values)
+            for step in steps:
+                self.solution_text.insert(tk.END, step + "\n")
             self.last_solution = sol
-            self.last_A = A
-            self.last_b = b
-            self.last_c = c
-            if sol is not None:
-                self.solution_text.insert(tk.END, "=== SOLUZIONE ===\n\n")
-                self.solution_text.insert(tk.END, f"Valore ottimo ({obj_type}): z = {optimal:.4f}\n\n")
-                self.solution_text.insert(tk.END, "Variabili decisionali:\n")
-                for i, val in enumerate(sol):
-                    self.solution_text.insert(tk.END, f"  x{subscript_number(i + 1)} = {val:.4f}\n")
-                self.solution_text.insert(tk.END, "\n=== FINE SOLUZIONE ===\n")
-            else:
-                self.solution_text.insert(tk.END, "Il problema non ha una soluzione ammissibile.\n")
+            self.last_A = None
+            self.last_b = None
+            self.last_c = None
         except Exception as e:
             messagebox.showerror("Errore", f"Si è verificato un errore: {e}")
+
+    def export_pdf(self):
+        try:
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".pdf",
+                filetypes=[("PDF files", "*.pdf")],
+                title="Salva Soluzione in PDF"
+            )
+            if not filename:
+                return
+            steps_text = self.solution_text.get("1.0", tk.END)
+            variables = [f"x{subscript_number(i+1)}" for i in range(self.num_vars.get())]
+            pdf_exporter.export_to_pdf(
+                filename=filename,
+                variables=variables,
+                obj_type=self.obj_type.get(),
+                obj_coeffs=[entry.get() for entry in self.obj_coeffs],
+                obj_signs=[sign.get() for sign in self.obj_signs],
+                constraints=[(frame, signs, entries, ineq, rhs_entry) for frame, signs, entries, ineq, rhs_entry in self.constraints],
+                nn_signs=self.nn_signs,
+                nn_values=[entry.get() for entry in self.nn_values],
+                integer_vars=[],
+                solution=self.last_solution,
+                slack_values=None,
+                dual_solution=None,
+                alternative_solutions=None,
+                original_constraint_count=len(self.constraints),
+                problem_history=None,
+                show_all_quadrants=self.show_all_quadrants.get(),
+                c=None, A=None,
+                steps_text=steps_text
+            )
+            messagebox.showinfo("Successo", "PDF salvato con successo.")
+        except Exception as e:
+            messagebox.showerror("Errore PDF", f"Errore durante l'esportazione del PDF: {e}")
 
     def open_graph_window(self):
         popup = tk.Toplevel(self.master)
@@ -449,10 +519,6 @@ class LinearProgrammingGUI:
         canvas.draw()
         toolbar = NavigationToolbar2Tk(canvas, popup)
         toolbar.update()
-
-    def export_pdf(self):
-        # Placeholder for PDF export logic
-        pass
 
 if __name__ == "__main__":
     root = tk.Tk()
