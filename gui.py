@@ -3,6 +3,10 @@ from tkinter import ttk, filedialog, messagebox
 import numpy as np
 import json
 from PIL import Image, ImageTk
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+
+import lp_solver
 import graph
 
 def subscript_number(n):
@@ -101,7 +105,7 @@ class LinearProgrammingGUI:
         self.nn_signs = []
         self.nn_values = []
 
-        # Integer Variables
+        # Integer Variables (not used in simplex, but included for completeness)
         self.integer_vars_label = ttk.Label(self.problem_frame, text="Variabili intere:")
         self.integer_vars_label.grid(row=7, column=0, padx=5, pady=5, sticky=tk.W)
         self.integer_vars = []
@@ -115,7 +119,7 @@ class LinearProgrammingGUI:
         self.save_button = ttk.Button(self.problem_frame, text="SALVA PROBLEMA", command=self.save_problem)
         self.save_button.grid(row=8, column=2, padx=5, pady=5)
 
-        # RIGHT: Solution description/process only
+        # RIGHT: Solution output
         right_frame = tk.Frame(main_frame)
         right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
 
@@ -133,10 +137,9 @@ class LinearProgrammingGUI:
         self.export_button.pack(side=tk.LEFT, padx=5)
         self.copy_button = ttk.Button(button_row, text="COPIA", command=self.copy_solution)
         self.copy_button.pack(side=tk.LEFT, padx=5)
-
         self.show_all_quadrants = tk.BooleanVar(value=False)
         self.show_all_quadrants_check = ttk.Checkbutton(
-            button_row, text="MOSTRA QUADRANTI", variable=self.show_all_quadrants, command=self.plot_graph
+            button_row, text="MOSTRA QUADRANTI", variable=self.show_all_quadrants
         )
         self.show_all_quadrants_check.pack(side=tk.LEFT, padx=5)
         self.graph_button = ttk.Button(button_row, text="GRAFICO", command=self.open_graph_window)
@@ -244,9 +247,7 @@ class LinearProgrammingGUI:
                 coeff_val = 0
             if coeff_val == 0:
                 continue
-            # Fix: Avoid duplicate operators
             sign_str = "+" if sign == "+" else "-"
-            # Always show sign except for first positive term
             if i == 0:
                 if sign == "-":
                     term = f"-{abs(coeff_val):g}{var}" if abs(coeff_val) != 1 else f"-{var}"
@@ -339,10 +340,9 @@ class LinearProgrammingGUI:
     def _get_problem_data(self):
         num_vars = self.num_vars.get()
         obj_type = self.obj_type.get()
-        obj_coeffs = [entry.get() for entry in self.obj_coeffs]
-        obj_signs = [sign.get() for sign in self.obj_signs]
+        obj_coeffs = [(sign.get(), entry.get()) for sign, entry in zip(self.obj_signs, self.obj_coeffs)]
+        nn_signs = self.nn_signs
         nn_values = [entry.get() for entry in self.nn_values]
-        integer_vars = [var.instate(['selected']) for var in self.integer_vars]
         constraints = []
         for frame, signs, entries, ineq, rhs_entry in self.constraints:
             constraint = {
@@ -356,9 +356,8 @@ class LinearProgrammingGUI:
             "num_vars": num_vars,
             "obj_type": obj_type,
             "obj_coeffs": obj_coeffs,
-            "obj_signs": obj_signs,
+            "nn_signs": nn_signs,
             "nn_values": nn_values,
-            "integer_vars": integer_vars,
             "constraints": constraints
         }
 
@@ -366,22 +365,20 @@ class LinearProgrammingGUI:
         self.num_vars.set(data.get("num_vars", 2))
         self.obj_type.set(data.get("obj_type", "max"))
         self.update_variables()
-        for i, (c, s) in enumerate(zip(data.get("obj_coeffs", []), data.get("obj_signs", []))):
+        for i, coeff_pair in enumerate(data.get("obj_coeffs", [])):
+            if isinstance(coeff_pair, (list, tuple)) and len(coeff_pair) == 2:
+                s, c = coeff_pair
+            else:
+                s, c = "+", coeff_pair
+            if i < len(self.obj_signs):
+                self.obj_signs[i].set(s)
             if i < len(self.obj_coeffs):
                 self.obj_coeffs[i].delete(0, tk.END)
                 self.obj_coeffs[i].insert(0, c)
-            if i < len(self.obj_signs):
-                self.obj_signs[i].set(s)
         for i, v in enumerate(data.get("nn_values", [])):
             if i < len(self.nn_values):
                 self.nn_values[i].delete(0, tk.END)
                 self.nn_values[i].insert(0, v)
-        for i, selected in enumerate(data.get("integer_vars", [])):
-            if i < len(self.integer_vars):
-                if selected:
-                    self.integer_vars[i].state(['selected'])
-                else:
-                    self.integer_vars[i].state(['!selected'])
         for widget in self.constraints_frame.winfo_children():
             widget.destroy()
         self.constraints = []
@@ -404,57 +401,21 @@ class LinearProgrammingGUI:
         try:
             num_vars = self.num_vars.get()
             obj_type = self.obj_type.get()
-            obj_coeffs = []
-            for i in range(num_vars):
-                sign = self.obj_signs[i].get()
-                coeff = float(self.obj_coeffs[i].get())
-                obj_coeffs.append(coeff if sign == "+" else -coeff)
-            A = []
-            b = []
-            ineq_ops = []
+            obj_coeffs = [(self.obj_signs[i].get(), self.obj_coeffs[i].get()) for i in range(num_vars)]
+            nn_signs = self.nn_signs
+            nn_values = [entry.get() for entry in self.nn_values]
+            constraints = []
             for frame, signs, entries, ineq, rhs_entry in self.constraints:
-                row = []
-                for i in range(num_vars):
-                    sign = signs[i].get()
-                    coeff = float(entries[i].get())
-                    row.append(coeff if sign == "+" else -coeff)
-                A.append(row)
-                b.append(float(rhs_entry.get()))
-                ineq_ops.append(ineq.get())
-            # Non-negativity constraints
-            for i, entry in enumerate(self.nn_values):
-                val = float(entry.get())
-                row = [0.0] * num_vars
-                if self.nn_signs[i] == ">=" or self.nn_signs[i] == "≥":
-                    row[i] = -1.0
-                    A.append(row)
-                    b.append(-val)
-                    ineq_ops.append("≤")
-                elif self.nn_signs[i] == "<=" or self.nn_signs[i] == "≤":
-                    row[i] = 1.0
-                    A.append(row)
-                    b.append(val)
-                    ineq_ops.append("≤")
-            # Standard form for simplex and plotting
-            A_std = []
-            b_std = []
-            for ai, bi, op in zip(A, b, ineq_ops):
-                if op == "≤":
-                    A_std.append(ai)
-                    b_std.append(bi)
-                elif op == "≥":
-                    A_std.append([-x for x in ai])
-                    b_std.append(-bi)
-                elif op == "=":
-                    A_std.append(ai)
-                    b_std.append(bi)
-                    A_std.append([-x for x in ai])
-                    b_std.append(-bi)
-            A = np.array(A_std)
-            b = np.array(b_std)
-            c = -np.array(obj_coeffs) if obj_type == "max" else np.array(obj_coeffs)
+                constraint = {
+                    "signs": [s.get() for s in signs],
+                    "values": [e.get() for e in entries],
+                    "ineq": ineq.get(),
+                    "rhs": rhs_entry.get()
+                }
+                constraints.append(constraint)
+            c, A, b = lp_solver.preprocess_problem(obj_type, obj_coeffs, constraints, nn_signs, nn_values)
             self.solution_text.delete("1.0", tk.END)
-            sol, optimal = self.simplex_solve(c, A, b)
+            sol, optimal = lp_solver.simplex_solve(c, A, b)
             self.last_solution = sol
             self.last_A = A
             self.last_b = b
@@ -468,69 +429,10 @@ class LinearProgrammingGUI:
                 self.solution_text.insert(tk.END, "\n=== FINE SOLUZIONE ===\n")
             else:
                 self.solution_text.insert(tk.END, "Il problema non ha una soluzione ammissibile.\n")
-            self.plot_graph()
         except Exception as e:
             messagebox.showerror("Errore", f"Si è verificato un errore: {e}")
 
-    def simplex_solve(self, c, A, b):
-        m, n = A.shape
-        tableau = np.zeros((m+1, n+m+1))
-        tableau[:-1, :n] = A
-        tableau[:-1, n:n+m] = np.eye(m)
-        tableau[:-1, -1] = b
-        tableau[-1, :n] = c
-        max_iter = 100 * (n + m)
-        for _ in range(max_iter):
-            if np.all(tableau[-1, :-1] >= -1e-10):
-                break
-            candidates = np.where(tableau[-1, :-1] < -1e-10)[0]
-            if len(candidates) == 0:
-                break
-            entering = candidates[0]
-            ratios = np.where(
-                tableau[:-1, entering] > 1e-10,
-                tableau[:-1, -1] / tableau[:-1, entering],
-                np.inf
-            )
-            if np.all(ratios == np.inf):
-                return None, None
-            leaving = np.argmin(ratios)
-            pivot = tableau[leaving, entering]
-            tableau[leaving, :] /= pivot
-            for i in range(m + 1):
-                if i != leaving:
-                    tableau[i, :] -= tableau[i, entering] * tableau[leaving, :]
-        solution = np.zeros(n)
-        for j in range(n):
-            col = tableau[:-1, j]
-            if np.count_nonzero(np.abs(col - 1) < 1e-8) == 1 and np.count_nonzero(np.abs(col) < 1e-8) == m - 1:
-                row = np.where(np.abs(col - 1) < 1e-8)[0][0]
-                solution[j] = tableau[row, -1]
-        optimal_value = tableau[-1, -1]
-        if self.obj_type.get() == "max":
-            optimal_value = -optimal_value
-        return solution, optimal_value
-
-    def plot_graph(self):
-        import matplotlib.pyplot as plt
-        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-        if hasattr(self, "canvas") and self.canvas is not None:
-            self.canvas.get_tk_widget().destroy()
-        fig, ax = plt.subplots(figsize=(7, 7))
-        variables = [f"x{subscript_number(i + 1)}" for i in range(self.num_vars.get())]
-        if self.last_c is not None and self.last_A is not None and self.last_b is not None:
-            graph.plot_solution_to_axes(
-                ax, self.last_c, self.last_A, self.last_b, variables,
-                show_all_quadrants=self.show_all_quadrants.get(),
-                solution=self.last_solution, show_solution=True
-            )
-        self.canvas = FigureCanvasTkAgg(fig, self.solution_frame)
-        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-        self.canvas.draw()
-
     def open_graph_window(self):
-        import matplotlib.pyplot as plt
-        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
         popup = tk.Toplevel(self.master)
         popup.title("Grafico - Regione Ammissibile")
         popup.geometry("820x820")
@@ -549,7 +451,7 @@ class LinearProgrammingGUI:
         toolbar.update()
 
     def export_pdf(self):
-        # Implement PDF export logic here if needed
+        # Placeholder for PDF export logic
         pass
 
 if __name__ == "__main__":

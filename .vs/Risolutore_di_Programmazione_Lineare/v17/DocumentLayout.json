@@ -9,6 +9,10 @@
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\graph.py||{8B382828-6202-11D1-8870-0000F87579D2}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:graph.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\lp_solver.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:lp_solver.py||{8B382828-6202-11D1-8870-0000F87579D2}"
     }
   ],
   "DocumentGroupContainers": [
@@ -40,9 +44,9 @@
               "RelativeDocumentMoniker": "graph.py",
               "ToolTip": "C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\graph.py",
               "RelativeToolTip": "graph.py",
-              "ViewState": "AgIAAGgAAAAAAAAAAAAQwHsAAAAcAAAAAAAAAA==",
+              "ViewState": "AgIAAHsAAAAAAAAAAAAQwI4AAAA9AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002457|",
-              "WhenOpened": "2025-06-16T22:12:29.703Z",
+              "WhenOpened": "2025-06-16T23:19:50.711Z",
               "EditorCaption": ""
             },
             {
@@ -53,9 +57,22 @@
               "RelativeDocumentMoniker": "gui.py",
               "ToolTip": "C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\gui.py",
               "RelativeToolTip": "gui.py",
-              "ViewState": "AgIAABoCAAAAAAAAAAAQwC0CAAATAAAAAAAAAA==",
+              "ViewState": "AgIAALgBAAAAAAAAAAAUwMsBAAATAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002457|",
-              "WhenOpened": "2025-06-16T21:10:41.559Z",
+              "WhenOpened": "2025-06-16T23:19:36.065Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "lp_solver.py",
+              "DocumentMoniker": "C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\lp_solver.py",
+              "RelativeDocumentMoniker": "lp_solver.py",
+              "ToolTip": "C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\lp_solver.py",
+              "RelativeToolTip": "lp_solver.py",
+              "ViewState": "AgIAADwAAAAAAAAAAAAYwFoAAAAiAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002457|",
+              "WhenOpened": "2025-06-16T23:19:27.334Z",
               "EditorCaption": ""
             }
           ]
