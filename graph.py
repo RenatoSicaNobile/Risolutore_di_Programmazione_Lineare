@@ -1,143 +1,154 @@
 import numpy as np
-from matplotlib.patches import Polygon, FancyArrowPatch
-from matplotlib.ticker import MaxNLocator
+import matplotlib.pyplot as plt
+from matplotlib.patches import Polygon
+from matplotlib.lines import Line2D
+from scipy.spatial import ConvexHull
 
-def intersect_lines(a1, b1, a2, b2):
-    """Return intersection point of a1[0]*x + a1[1]*y = b1 and a2[0]*x + a2[1]*y = b2, or None if parallel."""
-    A = np.array([a1, a2])
-    b = np.array([b1, b2])
-    try:
-        if np.linalg.matrix_rank(A) < 2:
-            return None
-        pt = np.linalg.solve(A, b)
-        return pt
-    except Exception:
-        return None
+def get_feasible_points(A, b, x1_min=0, x1_max=10, x2_min=0, x2_max=10, show_all_quadrants=False):
+    m, n = A.shape
+    points = []
+    # Collect all intersections of pairs of constraints
+    for i in range(m):
+        for j in range(i+1, m):
+            AA = np.array([A[i], A[j]])
+            if np.linalg.matrix_rank(AA) < 2:
+                continue
+            try:
+                pt = np.linalg.solve(AA, np.array([b[i], b[j]]))
+                if not np.isfinite(pt).all():
+                    continue
+                points.append(pt)
+            except Exception:
+                continue
+    # Add axis intercepts
+    for i in range(m):
+        a, bb = A[i], b[i]
+        if abs(a[0]) > 1e-8:
+            points.append(np.array([bb / a[0], 0]))
+        if abs(a[1]) > 1e-8:
+            points.append(np.array([0, bb / a[1]]))
+    points.append(np.array([0, 0]))
+    # Filter feasible points
+    feasible_points = []
+    for pt in points:
+        if not np.isfinite(pt).all():
+            continue
+        if np.all(A @ pt - b <= 1e-7) and \
+           (show_all_quadrants or (pt[0] >= -1e-7 and pt[1] >= -1e-7)):
+            feasible_points.append(pt)
+    return np.unique(np.round(feasible_points, 8), axis=0)
 
-def get_polygon_vertices(A, b, show_all_quadrants):
-    """Find all feasible intersections and sort them for polygon plotting."""
-    n = len(b)
-    verts = []
-    for i in range(n):
-        for j in range(i+1, n):
-            pt = intersect_lines(A[i], b[i], A[j], b[j])
-            if pt is not None and np.all(np.dot(A, pt) <= b + 1e-8):
-                # For all quadrants, allow negative; else only x>=0, y>=0
-                if show_all_quadrants or (pt[0] >= -1e-8 and pt[1] >= -1e-8):
-                    verts.append(tuple(np.round(pt, 8)))
-    verts = list(set(verts))
-    if len(verts) > 2:
-        center = np.mean(verts, axis=0)
-        verts.sort(key=lambda p: np.arctan2(p[1]-center[1], p[0]-center[0]))
-    return verts
-
-def plot_constraint_segments(ax, A, b, xlims, ylims, colors):
-    """Plot constraint lines only within axis bounds, including vertical/horizontal lines."""
-    n = len(b)
-    for i in range(n):
-        a = A[i]
-        bi = b[i]
-        color = colors[i % len(colors)]
-        # Try to find endpoints inside plot window
-        points = []
-        # Intersect with left/right borders (x=xmin/xmax)
-        for x in xlims:
-            if abs(a[1]) > 1e-12:
-                y = (bi - a[0]*x) / a[1]
-                if ylims[0]-1e-8 <= y <= ylims[1]+1e-8:
-                    points.append((x, y))
-        # Intersect with bottom/top borders (y=ymin/ymax)
-        for y in ylims:
-            if abs(a[0]) > 1e-12:
-                x = (bi - a[1]*y) / a[0]
-                if xlims[0]-1e-8 <= x <= xlims[1]+1e-8:
-                    points.append((x, y))
-        # Remove duplicates
-        points = [tuple(np.round(p, 8)) for p in points]
-        points = list(set(points))
-        # Plot only when two distinct points are found
-        if len(points) >= 2:
-            points = sorted(points, key=lambda p: (p[0], p[1]))
-            ax.plot([p[0] for p in points], [p[1] for p in points], color=color, linewidth=2, label=f"Vincolo {i+1}")
+def find_optimal_segment(c, feasible_points, z_opt):
+    """Find segment(s) of feasible_points where c.x == z_opt (for alternate optima)"""
+    eps = 1e-7
+    optimal_points = [pt for pt in feasible_points if abs(np.dot(c, pt) - z_opt) <= eps]
+    # Order segment endpoints (for display)
+    if len(optimal_points) > 2:
+        hull = ConvexHull(optimal_points)
+        optimal_points = [optimal_points[i] for i in hull.vertices]
+    return np.array(optimal_points)
 
 def plot_solution_to_axes(ax, c, A, b, variables, show_all_quadrants=False, solution=None, show_solution=True):
-    if len(variables) != 2 or A.shape[1] != 2:
-        ax.text(0.5, 0.5, "Grafico disponibile solo per problemi con 2 variabili",
-                ha="center", va="center")
+    # Only for 2 variables
+    if len(c) != 2 or A.shape[1] != 2:
+        ax.text(0.5, 0.5, "Plotting only for 2 variables", ha="center", va="center", fontsize=16)
         return
 
-    # Plot limits
+    # Set up plot range
+    x1_min, x1_max = 0, 10
+    x2_min, x2_max = 0, 10
     if show_all_quadrants:
-        x_min, x_max = -10, 10
-        y_min, y_max = -10, 10
-    else:
-        x_min, x_max = 0, 10
-        y_min, y_max = 0, 10
-    xlims = (x_min, x_max)
-    ylims = (y_min, y_max)
-    constraint_colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:cyan', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray']
+        x1_min, x2_min = -10, -10
 
-    plot_constraint_segments(ax, A, b, xlims, ylims, constraint_colors)
+    x1 = np.linspace(x1_min, x1_max, 500)
+    x2 = np.linspace(x2_min, x2_max, 500)
+    colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b"]
+
+    # Plot constraints
+    for i, (a, bb) in enumerate(zip(A, b)):
+        if abs(a[1]) > 1e-8:
+            y = (bb - a[0]*x1) / a[1]
+            ax.plot(x1, y, color=colors[i % len(colors)], label=f'Vincolo {i+1}', linewidth=2)
+        elif abs(a[0]) > 1e-8:
+            x_vert = bb / a[0]
+            ax.axvline(x_vert, color=colors[i % len(colors)], label=f'Vincolo {i+1}', linewidth=2)
 
     # Feasible region
-    verts = get_polygon_vertices(A, b, show_all_quadrants)
-    if verts and len(verts) > 2:
-        polygon = Polygon(verts, closed=True, alpha=0.3, color='skyblue', label='Regione ammissibile')
-        ax.add_patch(polygon)
-        for vx, vy in verts:
-            ax.plot(vx, vy, 'bo')
-            ax.text(vx, vy, f"({vx:.1f}, {vy:.1f})", fontsize=8, ha='right', va='bottom',
-                    bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
+    feasible_points = get_feasible_points(A, b, x1_min, x1_max, x2_min, x2_max, show_all_quadrants)
+    if len(feasible_points) > 2:
+        hull = ConvexHull(feasible_points)
+        region_pts = feasible_points[hull.vertices]
+        poly = Polygon(region_pts, closed=True, facecolor='cornflowerblue', alpha=0.2, label="Regione ammissibile")
+        ax.add_patch(poly)
+    else:
+        region_pts = feasible_points
 
-    # Highlight vertical segment at x1=3 if inside plot window
-    x1_segments = []
-    for pt in verts:
-        if abs(pt[0] - 3) < 1e-6:
-            x1_segments.append(pt)
-    if len(x1_segments) == 2:
-        x1_segments = sorted(x1_segments, key=lambda p: p[1])
-        ax.plot([3, 3], [x1_segments[0][1], x1_segments[1][1]], color='red', linewidth=3, label='Segmento x₁=3')
+    # Draw intersection points with labels
+    for pt in feasible_points:
+        ax.plot(pt[0], pt[1], 'o', color='blue')
+        # Offset label to avoid overlap
+        offset_x = 0.15 if pt[0] >= (x1_max-x1_min)*0.7 else -0.7
+        offset_y = 0.18 if pt[1] >= (x2_max-x2_min)*0.7 else -0.35
+        ax.text(pt[0]+offset_x, pt[1]+offset_y, f"({pt[0]:.1f}, {pt[1]:.1f})", fontsize=10,
+                bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
 
-    # Solution and direction
-    if show_solution and solution is not None and len(solution) == 2:
-        ax.plot(solution[0], solution[1], 'ro', markersize=8, label='Soluzione ottima')
-        # Objective direction line (isocost)
-        if c is not None and len(c) == 2 and np.linalg.norm(c) > 1e-12:
-            # For max: direction is -c; for min: direction is +c
-            direction = -c / np.linalg.norm(c)
-            ortho = np.array([direction[1], -direction[0]])
-            line_len = max(x_max - x_min, y_max - y_min) * 1.5
-            p1 = solution + ortho * line_len
-            p2 = solution - ortho * line_len
-            ax.plot([p1[0], p2[0]], [p1[1], p2[1]], 'g--', linewidth=2, label='Direzione ottimizzazione')
-            # Gradient vector: from origin, direction of increase
-            vec_length = min(x_max-x_min, y_max-y_min)*0.3
-            grad_start = np.array([0, 0])
-            grad_end = grad_start + direction * vec_length
-            arrow = FancyArrowPatch((grad_start[0], grad_start[1]),
-                                   (grad_end[0], grad_end[1]),
-                                   color='red', arrowstyle='->', mutation_scale=15,
-                                   linewidth=2, label='Vettore gradiente')
-            ax.add_patch(arrow)
+    # Plot level curves (grey dotted)
+    if solution is not None:
+        z_opt = float(np.dot(c, solution))
+        levels = np.linspace(z_opt - 6, z_opt + 6, 7)
+        for lev in levels:
+            if abs(c[1]) > 1e-8:
+                y = (lev - c[0]*x1) / c[1]
+                ax.plot(x1, y, ls=":", color="grey", alpha=0.5, lw=1, zorder=1)
+            elif abs(c[0]) > 1e-8:
+                x = lev / c[0]
+                ax.axvline(x, ls=":", color="grey", alpha=0.5, lw=1, zorder=1)
 
-    ax.axhline(0, color='black', linewidth=0.5)
-    ax.axvline(0, color='black', linewidth=0.5)
-    ax.set_xlim(x_min, x_max)
-    ax.set_ylim(y_min, y_max)
+    # Plot gradient vector from origin
+    grad = np.array(c)
+    grad_norm = np.linalg.norm(grad)
+    if grad_norm > 1e-8:
+        grad_unit = grad / grad_norm
+        grad_scale = min(x1_max, x2_max) * 0.5
+        grad_vec = grad_unit * grad_scale
+        ax.arrow(0, 0, grad_vec[0], grad_vec[1],
+                 head_width=0.25, head_length=0.4, fc='red', ec='red', linewidth=2, length_includes_head=True, zorder=3)
+
+    # Plot optimal segment (if multiple optima)
+    if solution is not None:
+        z_opt = float(np.dot(c, solution))
+        opt_pts = find_optimal_segment(c, feasible_points, z_opt)
+        if len(opt_pts) >= 2:
+            order = np.argsort(opt_pts[:, 0])  # Sort by x for visual clarity
+            opt_pts = opt_pts[order]
+            ax.plot(opt_pts[:, 0], opt_pts[:, 1], 'g-', linewidth=4, label="Direzione ottimizzazione", zorder=4)
+        else:
+            # Plot optimization direction line (old style, dashed)
+            dir_vec = grad / grad_norm if grad_norm > 1e-8 else np.array([1, 0])
+            t = np.linspace(-10, 10, 100)
+            line_x = solution[0] + dir_vec[0] * t
+            line_y = solution[1] + dir_vec[1] * t
+            ax.plot(line_x, line_y, "g--", linewidth=2, label="Direzione ottimizzazione", zorder=2)
+
+    # Plot optimal solution
+    if show_solution and solution is not None:
+        ax.plot(solution[0], solution[1], 'o', color='red', markersize=10, label="Soluzione ottima", zorder=5)
+
+    # Axes/labels/legend
     ax.set_xlabel(variables[0])
     ax.set_ylabel(variables[1])
+    ax.set_xlim(x1_min, x1_max)
+    ax.set_ylim(x2_min, x2_max)
     ax.set_title("Regione Ammissibile")
-    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
-    ax.grid(True, which='both', linestyle='--', alpha=0.5)
-    handles, labels = ax.get_legend_handles_labels()
-    if handles:
-        seen = set()
-        new_handles = []
-        new_labels = []
-        for h, l in zip(handles, labels):
-            if l not in seen:
-                new_handles.append(h)
-                new_labels.append(l)
-                seen.add(l)
-        ax.legend(new_handles, new_labels, loc='upper right')
+    # Custom legend
+    legend_elements = []
+    for i in range(len(A)):
+        legend_elements.append(Line2D([0], [0], color=colors[i % len(colors)], lw=2, label=f'Vincolo {i+1}'))
+    legend_elements.append(Line2D([0], [0], color='cornflowerblue', lw=8, alpha=0.2, label='Regione ammissibile'))
+    legend_elements.append(Line2D([0], [0], marker='o', color='red', lw=0, markersize=10, label='Soluzione ottima'))
+    legend_elements.append(Line2D([0], [0], color='green', lw=4, label='Direzione ottimizzazione'))
+    legend_elements.append(Line2D([0], [0], color='red', lw=2, label='Vettore gradiente'))
+    ax.legend(handles=legend_elements, loc='best')
+
+    ax.grid(True, linestyle="--", alpha=0.5)
+    ax.set_aspect('auto')

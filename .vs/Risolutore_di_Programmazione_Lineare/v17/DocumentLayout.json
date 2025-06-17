@@ -7,16 +7,16 @@
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:gui.py||{8B382828-6202-11D1-8870-0000F87579D2}"
     },
     {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\graph.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:graph.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\lp_solver.py||{8B382828-6202-11D1-8870-0000F87579D2}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:lp_solver.py||{8B382828-6202-11D1-8870-0000F87579D2}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\pdf_exporter.py||{8B382828-6202-11D1-8870-0000F87579D2}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:pdf_exporter.py||{8B382828-6202-11D1-8870-0000F87579D2}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\graph.py||{8B382828-6202-11D1-8870-0000F87579D2}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:graph.py||{8B382828-6202-11D1-8870-0000F87579D2}"
     }
   ],
   "DocumentGroupContainers": [
@@ -42,7 +42,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 3,
               "Title": "pdf_exporter.py",
               "DocumentMoniker": "C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\pdf_exporter.py",
               "RelativeDocumentMoniker": "pdf_exporter.py",
@@ -55,13 +55,13 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 1,
               "Title": "graph.py",
               "DocumentMoniker": "C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\graph.py",
               "RelativeDocumentMoniker": "graph.py",
               "ToolTip": "C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\graph.py",
               "RelativeToolTip": "graph.py",
-              "ViewState": "AgIAAHsAAAAAAAAAAAAQwI4AAAA9AAAAAAAAAA==",
+              "ViewState": "AgIAAHsAAAAAAAAAAAAYwJkAAAAZAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002457|",
               "WhenOpened": "2025-06-16T23:19:50.711Z",
               "EditorCaption": ""
@@ -81,7 +81,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "lp_solver.py",
               "DocumentMoniker": "C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\lp_solver.py",
               "RelativeDocumentMoniker": "lp_solver.py",
