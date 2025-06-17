@@ -7,12 +7,12 @@
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:gui.py||{8B382828-6202-11D1-8870-0000F87579D2}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\pdf_exporter.py||{8B382828-6202-11D1-8870-0000F87579D2}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:pdf_exporter.py||{8B382828-6202-11D1-8870-0000F87579D2}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\lp_solver.py||{8B382828-6202-11D1-8870-0000F87579D2}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:lp_solver.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\pdf_exporter.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:pdf_exporter.py||{8B382828-6202-11D1-8870-0000F87579D2}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\graph.py||{8B382828-6202-11D1-8870-0000F87579D2}",
@@ -42,7 +42,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "pdf_exporter.py",
               "DocumentMoniker": "C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\pdf_exporter.py",
               "RelativeDocumentMoniker": "pdf_exporter.py",
@@ -74,20 +74,20 @@
               "RelativeDocumentMoniker": "gui.py",
               "ToolTip": "C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\gui.py",
               "RelativeToolTip": "gui.py",
-              "ViewState": "AgIAAO8BAAAAAAAAAAAYwA0CAAATAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAYAAAASAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002457|",
               "WhenOpened": "2025-06-16T23:19:36.065Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 1,
               "Title": "lp_solver.py",
               "DocumentMoniker": "C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\lp_solver.py",
               "RelativeDocumentMoniker": "lp_solver.py",
               "ToolTip": "C:\\Users\\cebbu\\Documents\\GitHub\\Risolutore_di_Programmazione_Lineare\\lp_solver.py",
               "RelativeToolTip": "lp_solver.py",
-              "ViewState": "AgIAAI8AAAAAAAAAAAAYwKcAAAAgAAAAAAAAAA==",
+              "ViewState": "AgIAALEAAAAAAAAAAAAQwMQAAAAxAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002457|",
               "WhenOpened": "2025-06-16T23:19:27.334Z",
               "EditorCaption": ""

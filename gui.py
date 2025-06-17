@@ -4,6 +4,7 @@ import json
 from PIL import Image, ImageTk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+import numpy as np
 
 import lp_solver
 import graph
@@ -124,7 +125,7 @@ class LinearProgrammingGUI:
         right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
         self.solution_frame = ttk.LabelFrame(right_frame, text="Processo risolutivo")
         self.solution_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=(0, 5))
-        self.solution_text = tk.Text(self.solution_frame, height=30, wrap=tk.WORD)
+        self.solution_text = tk.Text(self.solution_frame, height=30, wrap=tk.WORD, font=("Consolas", 12))
         self.solution_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         button_row = tk.Frame(self.solution_frame)
         button_row.pack(fill=tk.X, padx=5, pady=2)
@@ -145,18 +146,13 @@ class LinearProgrammingGUI:
         self.last_A = None
         self.last_b = None
         self.last_c = None
+        self.last_tableau = None
+        self.last_varnames = None
         self.update_variables()
-
-    def copy_solution(self):
-        try:
-            self.master.clipboard_clear()
-            self.master.clipboard_append(self.solution_text.get("1.0", tk.END))
-            messagebox.showinfo("Copiato", "Soluzione copiata negli appunti!")
-        except Exception:
-            messagebox.showerror("Errore", "Impossibile copiare la soluzione negli appunti.")
 
     def update_variables(self):
         num_vars = self.num_vars.get()
+        # Clear objective function coefficient widgets
         for widget in self.obj_coeffs_frame.winfo_children():
             widget.destroy()
         self.obj_coeffs = []
@@ -178,6 +174,7 @@ class LinearProgrammingGUI:
             var_label.grid(row=0, column=i * 3 + 2, padx=2, pady=2)
         self.show_objective_function()
 
+        # Update non-negativity constraints
         for widget in self.nn_constraints_frame.winfo_children():
             widget.destroy()
         self.nn_signs = []
@@ -191,6 +188,7 @@ class LinearProgrammingGUI:
             value_entry.grid(row=0, column=i * 2 + 1, padx=2, pady=2)
             self.nn_values.append(value_entry)
 
+        # Update integer variable checkboxes
         for widget in self.integer_vars_frame.winfo_children():
             widget.destroy()
         self.integer_vars = []
@@ -199,8 +197,8 @@ class LinearProgrammingGUI:
             var_check.grid(row=0, column=i, padx=2, pady=2)
             self.integer_vars.append(var_check)
 
-        # Update constraints entries to match variable count
-        for idx, (frame, signs, entries, ineq, rhs_entry) in enumerate(self.constraints):
+        # Update constraints' variable widgets
+        for frame, signs, entries, ineq, rhs_entry in self.constraints:
             for widget in frame.winfo_children():
                 widget.destroy()
             signs.clear()
@@ -218,15 +216,19 @@ class LinearProgrammingGUI:
                 entries.append(entry)
                 var_label = ttk.Label(frame, text="x" + subscript_number(j + 1))
                 var_label.grid(row=0, column=j * 3 + 2, padx=2, pady=2)
-            ineq = tk.StringVar(value="≤")
             ineq_combo = ttk.Combobox(
                 frame, textvariable=ineq, values=["≤", "≥", "="], width=3, state="readonly"
             )
             ineq_combo.grid(row=0, column=num_vars * 3, padx=2, pady=2)
-            new_rhs_entry = ttk.Entry(frame, width=5)
-            new_rhs_entry.insert(0, "0.0")
-            new_rhs_entry.grid(row=0, column=num_vars * 3 + 1, padx=2, pady=2)
-            self.constraints[idx] = (frame, signs, entries, ineq, new_rhs_entry)
+            rhs_entry.grid(row=0, column=num_vars * 3 + 1, padx=2, pady=2)
+
+    def copy_solution(self):
+        try:
+            self.master.clipboard_clear()
+            self.master.clipboard_append(self.solution_text.get("1.0", tk.END))
+            messagebox.showinfo("Copiato", "Soluzione copiata negli appunti!")
+        except Exception:
+            messagebox.showerror("Errore", "Impossibile copiare la soluzione negli appunti.")
 
     def show_objective_function(self):
         num_vars = self.num_vars.get()
@@ -412,9 +414,10 @@ class LinearProgrammingGUI:
             obj_terms.append(term)
         obj_str = "".join(obj_terms) if obj_terms else "0"
         lines = []
-        lines.append("·	Objective:")
-        lines.append(f" {obj_type} z = {obj_str}")
-        lines.append("·	Constraints:")
+        lines.append("Objective:")
+        lines.append(f"{obj_type} z = {obj_str}")
+        lines.append("")
+        lines.append("Constraints:")
         for frame, signs, entries, ineq, rhs_entry in self.constraints:
             constraint_terms = []
             for i in range(num_vars):
@@ -432,17 +435,18 @@ class LinearProgrammingGUI:
                 else:
                     term = f" {'-' if sign == '-' else '+'}{abs(coeff_val):g}{var}" if abs(coeff_val) != 1 else f" {'-' if sign == '-' else '+'}{var}"
                 constraint_terms.append(term)
-            lines.append(f" {' '.join(constraint_terms)} {ineq.get()} {rhs_entry.get()}")
+            lines.append(f"{' '.join(constraint_terms):<22} {ineq.get()} {rhs_entry.get()}")
         for i in range(num_vars):
             var = f"x{subscript_number(i+1)}"
-            lines.append(f" {var} ≥ 0")
-        return "\n".join(lines) + "\n\n"
+            lines.append(f"{var} ≥ 0")
+        lines.append("")
+        return "\n".join(lines)
 
     def solve(self):
         try:
             self.solution_text.delete("1.0", tk.END)
             prob_text = self.get_problem_statement()
-            self.solution_text.insert(tk.END, prob_text)
+            self.solution_text.insert(tk.END, prob_text + "\n")
             num_vars = self.num_vars.get()
             obj_type = self.obj_type.get()
             obj_coeffs = [(self.obj_signs[i].get(), self.obj_coeffs[i].get()) for i in range(num_vars)]
@@ -457,13 +461,22 @@ class LinearProgrammingGUI:
                     "rhs": rhs_entry.get()
                 }
                 constraints.append(constraint)
-            steps, sol, optimal = lp_solver.simplex_full(obj_type, obj_coeffs, constraints, nn_signs, nn_values)
+            steps, sol, optimal, tableau, varnames = lp_solver.simplex_full(obj_type, obj_coeffs, constraints, nn_signs, nn_values)
             for step in steps:
-                self.solution_text.insert(tk.END, step + "\n")
+                self.solution_text.insert(tk.END, step + "\n\n")
             self.last_solution = sol
-            self.last_A = None
-            self.last_b = None
-            self.last_c = None
+            self.last_tableau = tableau
+            self.last_varnames = varnames
+            # Save for graph
+            self.last_c = [float(c[1]) if c[0] == "+" else -float(c[1]) for c in obj_coeffs]
+            self.last_A = []
+            self.last_b = []
+            for c in constraints:
+                row = []
+                for s, v in zip(c["signs"], c["values"]):
+                    row.append(float(v) if s == "+" else -float(v))
+                self.last_A.append(row)
+                self.last_b.append(float(c["rhs"]))
         except Exception as e:
             messagebox.showerror("Errore", f"Si è verificato un errore: {e}")
 
@@ -503,22 +516,32 @@ class LinearProgrammingGUI:
             messagebox.showerror("Errore PDF", f"Errore durante l'esportazione del PDF: {e}")
 
     def open_graph_window(self):
+        if self.last_A is None or self.last_b is None or self.last_c is None:
+            messagebox.showwarning("Grafico", "Risolvere il problema prima di generare il grafico.")
+            return
         popup = tk.Toplevel(self.master)
         popup.title("Grafico - Regione Ammissibile")
         popup.geometry("820x820")
         fig, ax = plt.subplots(figsize=(8, 8))
         variables = [f"x{subscript_number(i + 1)}" for i in range(self.num_vars.get())]
-        if self.last_c is not None and self.last_A is not None and self.last_b is not None:
+        # Only works for 2 variables!
+        if len(self.last_c) == 2:
             graph.plot_solution_to_axes(
-                ax, self.last_c, self.last_A, self.last_b, variables,
+                ax, np.array(self.last_c), np.array(self.last_A), np.array(self.last_b), variables,
                 show_all_quadrants=self.show_all_quadrants.get(),
                 solution=self.last_solution, show_solution=True
             )
-        canvas = FigureCanvasTkAgg(fig, master=popup)
-        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-        canvas.draw()
-        toolbar = NavigationToolbar2Tk(canvas, popup)
-        toolbar.update()
+            canvas = FigureCanvasTkAgg(fig, master=popup)
+            canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+            canvas.draw()
+            toolbar = NavigationToolbar2Tk(canvas, popup)
+            toolbar.update()
+        else:
+            ax.text(0.5, 0.5, "Plotting only available for 2 variables.", ha="center", va="center", fontsize=16)
+            fig.tight_layout()
+            canvas = FigureCanvasTkAgg(fig, master=popup)
+            canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+            canvas.draw()
 
 if __name__ == "__main__":
     root = tk.Tk()
